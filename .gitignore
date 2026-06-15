@@ -14,3 +14,9 @@ native/*/build/
 
 # macOS
 .DS_Store
+
+#My own Practise folder
+Practise/
+
+#IDE Folders
+.idea/
