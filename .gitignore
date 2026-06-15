@@ -1,0 +1,16 @@
+# .NET
+src/**/bin/
+src/**/obj/
+*.user
+
+# C++ build
+native/*/build/
+
+# SQLite database (data, not code)
+*.db
+
+# VS Code local settings
+.vscode/
+
+# macOS
+.DS_Store
