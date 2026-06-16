@@ -3,6 +3,13 @@ using Microsoft.Data.Sqlite;
 
 namespace Noesis.Core.Storage;
 
+
+//Per WriteAsync() methods use:
+// string timestamp
+//string filename
+//string directory
+//string fullpath
+
 public class BrainWriter
 {
     private readonly string _brainPath;
@@ -13,8 +20,6 @@ public class BrainWriter
         this._brainPath = brainPath;
         this._dbPath = dbPath;
     }
-    
-    //TODO: Validator call will be here once I get to Phase 0.5
     
     private string RenderDecisionMarkdown(Decision decision)
     {
@@ -137,6 +142,7 @@ Source: {decision.Source ?? "Unknown"}
         return $@"---
 ID: {entity.Id}
 Type: {entity.Type}
+CreatedAt:  {entity.CreatedAt}
 CurrentEntityType: {entity.CurrentEntityType.ToString()}
 ProjectId: {entity.ProjectId}
 Confidence: {entity.Confidence}
@@ -149,14 +155,121 @@ File: {entity.Location ?? "Unknown"}
 ### Entity description:
 {entity.Description}";
     }
-    
-    public async Task WriteRawAsync(RawMemory rawMemory)
+
+
+    private string RelatedDecisionsFallback(in List<string>? decisions) // (*)
     {
+        if (decisions is null or [])
+            return "None Available";
+        return String.Join("\n- ",  decisions);
+    }
+    private string RenderLessonMarkdown(Lesson lesson)
+    {
+        return $@"---
+ID: {lesson.Id}
+CreatedAt:  {lesson.CreatedAt}
+ProjectId: {lesson.ProjectId}
+Content: {lesson.Content}
+Confidence: {lesson.Confidence}
+Type: {lesson.Type}
+Source: {lesson.Source ?? "Unknown"}
+---
+
+# {lesson.Content}
+
+### Observed In:
+- {String.Join("\n- ", lesson.ObservedIn)}
+
+### Related Decisions:
+- {RelatedDecisionsFallback(lesson.RelatedDecisions)}"; // (*) fallback: if lesson.RelatedDecisions is null, String.Join can't handle it.
         
     }
     
     public async Task WriteLessonAsync(Lesson lesson)
     {
+        string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+        string filename = timestamp + "-" + lesson.Id.ToString() + ".md";
+        string directory = Path.Combine(_brainPath, "lessons");
+        string fullpath = Path.Combine(directory, filename);
+        Directory.CreateDirectory(directory);
         
+        string markdownContent = RenderLessonMarkdown(lesson);
+        await File.WriteAllTextAsync(fullpath, markdownContent);
+
+        using var connection = new SqliteConnection($"Data Source={_dbPath};");
+        await connection.OpenAsync();
+
+        try
+        {
+            await InsertIntoFtsAsync(connection, lesson, fullpath);
+        }
+        catch
+        {
+            try
+            {
+                File.Delete(fullpath);
+            }
+            catch {}
+
+            throw;
+        }
+    }
+
+    public async Task WriteRawAsync(RawMemory rawMemory)
+    {
+        string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
+        string filename = timestamp + "-" + rawMemory.Id.ToString() + ".md";
+        string directory = Path.Combine(_brainPath, "raw");
+        string fullpath =  Path.Combine(directory, filename);
+        Directory.CreateDirectory(directory);
+
+        string markdownContent = RenderRawMarkdown(rawMemory);
+        await File.WriteAllTextAsync(fullpath, markdownContent);
+        
+        using var connection = new SqliteConnection($"Data Source={_dbPath};");
+        await connection.OpenAsync();
+
+        try
+        {
+            await InsertIntoFtsAsync(connection, rawMemory, fullpath);
+        }
+        catch
+        {
+            try
+            {
+                File.Delete(fullpath);
+            } catch {}
+
+            throw;
+        }
+    }
+
+    private string RenderRawMarkdown(RawMemory rawMemory)
+    {
+        string humanReadableTime = RenderHumanReadableTime(rawMemory.SessionDurationSeconds); 
+        // (**) Convert rawMemory.SessionDurationSeconds to an actual human-readable format
+
+        return $@"---
+ID: {rawMemory.Id}
+CreatedAt:  {rawMemory.CreatedAt}
+ProjectId: {rawMemory.ProjectId}
+Content:  {rawMemory.Content}
+Confidence: {rawMemory.Confidence}
+Type:  {rawMemory.Type}
+Source: {rawMemory.Source ?? "Unknown"}
+ToolName: {rawMemory.ToolName}
+SessionDuration: {humanReadableTime} 
+---
+
+# {rawMemory.Content}";
+
+    }
+
+    private string RenderHumanReadableTime(in int sessionSeconds) // (**)
+    {
+        int minutes = (sessionSeconds % 3600) / 60;
+        int hours = sessionSeconds / 3600;
+
+        return $"{hours}:{minutes}:{sessionSeconds % 60}";
     }
 }
