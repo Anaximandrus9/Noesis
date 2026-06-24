@@ -4,7 +4,7 @@ namespace Noesis.Core.Storage;
 
 public class Validator
 {
-    public static ValidationResult Validate(MemoryEntry entry)
+    public static ValidationResult Validate(in MemoryEntry entry)
     {
         List<string> errors = new List<string>();
         

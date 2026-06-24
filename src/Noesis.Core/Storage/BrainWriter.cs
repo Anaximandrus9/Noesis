@@ -14,12 +14,13 @@ public class BrainWriter
 {
     private readonly string _brainPath;
     private readonly string _dbPath;
-
+    
     public BrainWriter(string brainPath, string dbPath)
     {
         this._brainPath = brainPath;
         this._dbPath = dbPath;
     }
+    
     
     private string RenderDecisionMarkdown(Decision decision)
     {
@@ -46,6 +47,10 @@ Source: {decision.Source ?? "Unknown"}
 
     public async Task WriteDecisionAsync(Decision decision)
     {
+        ValidationResult result = Validator.Validate(decision);
+        if (!result.IsSuccess)
+            throw new ArgumentException($"Invalid memory entry\n{String.Join(",", result.Errors)}");
+        
         string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
         string filename = timestamp + "-" + decision.Id + ".md";
         string directory = Path.Combine(_brainPath, "decisions");
@@ -109,6 +114,10 @@ Source: {decision.Source ?? "Unknown"}
 
     public async Task WriteEntityAsync(Entity entity)
     {
+        ValidationResult result = Validator.Validate(entity);
+        if (!result.IsSuccess)
+            throw new ArgumentException($"Invalid memory entry\n{String.Join(",", result.Errors)}");
+        
         string timestamp =  DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
         string filename = timestamp + "-" + entity.Id.ToString() + ".md";
         string directory = Path.Combine(_brainPath, "entities");
@@ -187,6 +196,10 @@ Source: {lesson.Source ?? "Unknown"}
     
     public async Task WriteLessonAsync(Lesson lesson)
     {
+        ValidationResult result = Validator.Validate(lesson);
+        if (!result.IsSuccess)
+            throw new ArgumentException($"Invalid memory entry\n{String.Join(",", result.Errors)}");
+        
         string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
         string filename = timestamp + "-" + lesson.Id.ToString() + ".md";
         string directory = Path.Combine(_brainPath, "lessons");
@@ -217,6 +230,10 @@ Source: {lesson.Source ?? "Unknown"}
 
     public async Task WriteRawAsync(RawMemory rawMemory)
     {
+        ValidationResult result = Validator.Validate(rawMemory);
+        if (!result.IsSuccess)
+            throw new ArgumentException($"Invalid memory entry\n{String.Join(",", result.Errors)}");
+        
         string timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmss");
         string filename = timestamp + "-" + rawMemory.Id.ToString() + ".md";
         string directory = Path.Combine(_brainPath, "raw");
